@@ -4,6 +4,17 @@ import { stripe } from '@/lib/stripe'
 import { db } from '@/lib/db'
 import Stripe from 'stripe'
 
+function getTierFromPriceId(priceId: string): string {
+  const starterPriceId = process.env.STRIPE_PRICE_ID_STARTER || process.env.STRIPE_STARTER
+  const proPriceId = process.env.STRIPE_PRICE_ID_PROFESSIONAL || process.env.STRIPE_PRO
+  const agencyPriceId = process.env.STRIPE_PRICE_ID_AGENCY || process.env.STRIPE_AGENCY
+
+  if (priceId === starterPriceId) return 'starter'
+  if (priceId === proPriceId) return 'professional'
+  if (priceId === agencyPriceId) return 'agency'
+  return 'free'
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.text()
   const signature = headers().get('stripe-signature')
@@ -36,23 +47,12 @@ export async function POST(req: NextRequest) {
           break
         }
 
-        // Get subscription details
         const subscription = await stripe.subscriptions.retrieve(
           session.subscription as string
         )
 
-        // Determine tier from price ID
-        let tier = 'free'
-        const priceId = subscription.items.data[0].price.id
-        if (priceId === process.env.STRIPE_PRICE_ID_STARTER) {
-          tier = 'starter'
-        } else if (priceId === process.env.STRIPE_PRICE_ID_PROFESSIONAL) {
-          tier = 'professional'
-        } else if (priceId === process.env.STRIPE_PRICE_ID_AGENCY) {
-          tier = 'agency'
-        }
+        const tier = getTierFromPriceId(subscription.items.data[0].price.id)
 
-        // Update user subscription
         await db.user.update({
           where: { clerkId: userId },
           data: {
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
             subscriptionStatus: subscription.status,
             currentPeriodStart: new Date(subscription.current_period_start * 1000),
             currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-            conversionsUsed: 0, // Reset on new subscription
+            conversionsUsed: 0,
             lastResetDate: new Date(),
           },
         })
@@ -72,23 +72,13 @@ export async function POST(req: NextRequest) {
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription
 
-        // Find user by Stripe customer ID
         const user = await db.user.findUnique({
           where: { stripeCustomerId: subscription.customer as string },
         })
 
         if (!user) break
 
-        // Determine tier
-        let tier = 'free'
-        const priceId = subscription.items.data[0].price.id
-        if (priceId === process.env.STRIPE_PRICE_ID_STARTER) {
-          tier = 'starter'
-        } else if (priceId === process.env.STRIPE_PRICE_ID_PROFESSIONAL) {
-          tier = 'professional'
-        } else if (priceId === process.env.STRIPE_PRICE_ID_AGENCY) {
-          tier = 'agency'
-        }
+        const tier = getTierFromPriceId(subscription.items.data[0].price.id)
 
         await db.user.update({
           where: { id: user.id },
@@ -111,7 +101,6 @@ export async function POST(req: NextRequest) {
 
         if (!user) break
 
-        // Downgrade to free tier
         await db.user.update({
           where: { id: user.id },
           data: {
@@ -127,7 +116,6 @@ export async function POST(req: NextRequest) {
         const invoice = event.data.object as Stripe.Invoice
 
         if (invoice.billing_reason === 'subscription_cycle') {
-          // Reset monthly usage on successful billing
           const user = await db.user.findUnique({
             where: { stripeCustomerId: invoice.customer as string },
           })

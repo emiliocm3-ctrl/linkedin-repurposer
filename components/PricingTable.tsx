@@ -39,7 +39,7 @@ const tiers: PricingTier[] = [
       'Conversion history',
     ],
     cta: 'Start Free Trial',
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER,
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER || process.env.STRIPE_STARTER,
   },
   {
     name: 'Professional',
@@ -55,7 +55,7 @@ const tiers: PricingTier[] = [
     ],
     cta: 'Start Free Trial',
     popular: true,
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PROFESSIONAL,
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PROFESSIONAL || process.env.STRIPE_PRO,
   },
   {
     name: 'Agency',
@@ -70,7 +70,7 @@ const tiers: PricingTier[] = [
       'Dedicated support',
     ],
     cta: 'Contact Sales',
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_AGENCY,
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_AGENCY || process.env.STRIPE_AGENCY,
   },
 ]
 
